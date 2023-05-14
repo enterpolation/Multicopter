@@ -60,15 +60,11 @@ class MultiCopter:
             except yaml.YAMLError as exc:
                 print(exc)
 
+        self.control_input = None
         self.control_inputs = []
 
         # Simulation variables
         self.optimal_phase = None
-
-        self.t = None
-        self.n_x = None
-        self.n_y = None
-        self.n_z = None
 
         # Stabilization variables
         self.a_state = None
@@ -84,23 +80,20 @@ class MultiCopter:
             if i % 2 != 0:
                 deltas[i] = -1
 
-        # Fill 1st row
         for i in range(self.num_rotors):
+            # Fill 1st row
             matrix[0][i] = self.l_c * self.k * np.cos(self.rotor_angels[i])
 
-        # Fill 2nd row
-        for i in range(self.num_rotors):
+            # Fill 2nd row
             matrix[1][i] = self.b * deltas[i]
 
-        # Fill 3rd row
-        for i in range(self.num_rotors):
+            # Fill 3rd row
             matrix[2][i] = -self.l_c * self.k * np.sin(self.rotor_angels[i])
 
-        # Fill 4th row
-        for i in range(self.num_rotors):
+            # Fill 4th row
             matrix[3][i] = self.k
 
-        return np.round(matrix, 10)
+        return matrix
 
     @staticmethod
     def __place(a: np.array, b: np.array, poles: np.array) -> np.array:
@@ -121,24 +114,32 @@ class MultiCopter:
         :param phase: phase vector;
         :return: None
         """
-        control_input = -self.k_state @ (phase - self.optimal_phase)
-        self.control_inputs.append(control_input)
-
-        self.n_x = control_input[0]
-        self.n_y = control_input[1]
-        self.n_z = control_input[2]
-        self.t = control_input[3] + self.g * self.m
+        self.control_input = -self.k_state @ (phase - self.optimal_phase)
+        self.control_input[3] += self.g
+        self.control_inputs.append(self.control_input)
 
     def get_rotor_speeds(self) -> np.array:
+        """
+        Get actual rotor speeds from control inputs;
+        :return: array of rotor speeds in each time point.
+        """
         dynamic_matrix = self.__generate_dynamic_matrix()
+        if self.num_rotors > 4:
+            dynamic_matrix = dynamic_matrix[:, [0, 1, 2, 3]]
+
         rotor_speeds = []
 
         for control_input in self.control_inputs:
             control_input[0] *= self.j_x
             control_input[1] *= self.j_y
             control_input[2] *= self.j_z
+            control_input[3] *= self.m
             control_input[3] += self.g
+
             speeds = np.linalg.solve(dynamic_matrix, control_input)
+            if self.num_rotors > 4:
+                dummy_speeds = np.zeros(self.num_rotors - 4)
+                speeds = np.concatenate((speeds, dummy_speeds))
             rotor_speeds.append(speeds)
 
         return np.sqrt(np.array(rotor_speeds))
@@ -158,10 +159,8 @@ class MultiCopter:
         :param optimal_phase: optimal phase vector;
         :param num_points: number of discrete points for simulation;
         :param simulation_time: time of simulation in seconds;
-        :return: 3 arrays of coordinates (x, y, z)
-        and 3 arrays of euler angels (phi, theta, psi)
+        :return: 12 arrays of phase coordinates.
         """
-
         self.optimal_phase = optimal_phase
 
         # State space matrices for linearizing
@@ -284,13 +283,13 @@ class MultiCopter:
 
         x1_dot = (
             self.j_y - self.j_z
-        ) / self.j_x * x2 * x3 + self.n_x / self.j_x
+        ) / self.j_x * x2 * x3 + self.control_input[0]
         x2_dot = (
             self.j_z - self.j_x
-        ) / self.j_y * x1 * x3 + self.n_y / self.j_y
+        ) / self.j_y * x1 * x3 + self.control_input[1]
         x3_dot = (
             self.j_x - self.j_y
-        ) / self.j_z * x1 * x2 + self.n_z / self.j_z
+        ) / self.j_z * x1 * x2 + self.control_input[2]
 
         x4_dot = x1 - np.tan(x5) * (x2 * np.cos(x4) - x3 * np.sin(x4))
         x5_dot = x2 * np.sin(x4) + x3 * np.cos(x4)
@@ -300,16 +299,12 @@ class MultiCopter:
         x8_dot = x11
         x9_dot = x12
 
-        x10_dot = (
-            self.t
-            / self.m
-            * (np.sin(x4) * np.sin(x6) - np.cos(x4) * np.sin(x5) * np.cos(x6))
+        x10_dot = self.control_input[3] * (
+            np.sin(x4) * np.sin(x6) - np.cos(x4) * np.sin(x5) * np.cos(x6)
         )
-        x11_dot = self.t / self.m * np.cos(x5) * np.cos(x4) - self.g
-        x12_dot = (
-            self.t
-            / self.m
-            * (np.cos(x6) * np.sin(x4) + np.cos(x4) * np.sin(x5) * np.sin(x6))
+        x11_dot = self.control_input[3] * np.cos(x5) * np.cos(x4) - self.g
+        x12_dot = self.control_input[3] * (
+            np.cos(x6) * np.sin(x4) + np.cos(x4) * np.sin(x5) * np.sin(x6)
         )
 
         return (

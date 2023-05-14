@@ -7,18 +7,16 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-font = {"size": 12}
+font = {"size": 16}
 matplotlib.rc("font", **font)
 
 
 def plot_speeds(
-    speeds: np.array,
-    plot_name: str,
-    save_plot: bool = False
+    speeds: np.array, plot_name: str, save_plot: bool = False
 ) -> None:
     n_rotors = speeds.shape[1]
 
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(16, 6))
     plt.title(r"Rotor angle speeds")
     plt.xlabel("iteration")
     plt.ylabel("rad / s")
@@ -30,7 +28,7 @@ def plot_speeds(
     plt.legend()
 
     if save_plot:
-        plt.savefig(plot_name + ".eps")
+        plt.savefig(plot_name + ".eps", bbox_inches="tight")
 
     plt.show()
 
@@ -60,10 +58,10 @@ def plot_phase(
     phi, theta, psi = angles
     v_x_speed, v_y_speed, v_z_speed = speeds
 
-    plt.figure(figsize=(18, 10))
-    # plt.suptitle("Simulation plots")
+    plt.figure(figsize=(16, 20))
+    plt.tight_layout()
 
-    plt.subplot(221)
+    plt.subplot(411)
     plt.title("Coordinates $X$, $Y$, $Z$")
     plt.scatter(grid[0], x_cords[0], marker="x")
     plt.scatter(grid[len(grid) - 1], x_cords[len(grid) - 1], marker="o")
@@ -78,9 +76,10 @@ def plot_phase(
     plt.plot(grid, z_cords, label="$Z$")
 
     plt.grid()
+    plt.gca().axes.xaxis.set_ticklabels([])
     plt.legend()
 
-    plt.subplot(222)
+    plt.subplot(412)
     plt.title("Projection speeds $V_z, V_y, V_z$")
     plt.scatter(grid[0], v_x_speed[0], marker="x")
     plt.scatter(grid[len(grid) - 1], v_x_speed[len(grid) - 1], marker="o")
@@ -95,9 +94,10 @@ def plot_phase(
     plt.plot(grid, v_z_speed, label="$V_z$")
 
     plt.grid()
+    plt.gca().axes.xaxis.set_ticklabels([])
     plt.legend()
 
-    plt.subplot(223)
+    plt.subplot(413)
     plt.title(r"Euler angles $\varphi, \theta, \psi$")
     plt.scatter(grid[0], phi[0], marker="x")
     plt.scatter(grid[len(grid) - 1], phi[len(grid) - 1], marker="o")
@@ -112,9 +112,10 @@ def plot_phase(
     plt.plot(grid, psi, label=r"$\psi$")
 
     plt.grid()
+    plt.gca().axes.xaxis.set_ticklabels([])
     plt.legend()
 
-    plt.subplot(224)
+    plt.subplot(414)
     plt.title(r"Angle speeds $\omega_x, \omega_y, \omega_z$")
     plt.scatter(grid[0], omegas_x[0], marker="x")
     plt.scatter(grid[len(grid) - 1], omegas_x[len(grid) - 1], marker="o")
@@ -133,8 +134,6 @@ def plot_phase(
     plt.legend()
 
     if save_plot:
-        plt.savefig(plot_name + ".eps")
+        plt.savefig(plot_name + ".eps", bbox_inches="tight")
 
     plt.show()
-
-
